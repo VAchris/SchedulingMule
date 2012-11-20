@@ -1,21 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:cxf="http://www.mulesoft.org/schema/mule/cxf" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:core="http://www.mulesoft.org/schema/mule/core" xmlns:jersey="http://www.mulesoft.org/schema/mule/jersey" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:spring="http://www.springframework.org/schema/beans" version="EE-3.3.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:cxf="http://www.mulesoft.org/schema/mule/cxf" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:core="http://www.mulesoft.org/schema/mule/core" xmlns:jersey="http://www.mulesoft.org/schema/mule/jersey" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:spring="http://www.springframework.org/schema/beans" version="EE-3.3.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
 http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd 
 http://www.mulesoft.org/schema/mule/cxf http://www.mulesoft.org/schema/mule/cxf/current/mule-cxf.xsd 
 http://www.mulesoft.org/schema/mule/jersey http://www.mulesoft.org/schema/mule/jersey/current/mule-jersey.xsd 
 http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd 
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd 
-http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd 
-http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd ">
-    <flow name="SchedulingFlow" doc:name="SchedulingFlow">
-        <inbound-endpoint address="http://localhost:8080/rest" doc:name="REST Server"/>
-        <jersey:resources doc:name="REST Service">
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd 
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd ">
+    <flow name="SchedulingFlow" doc:name="SchedulingFlow" processingStrategy="synchronous">
+        <inbound-endpoint address="http://localhost:8080/rest" doc:name="REST Server" exchange-pattern="request-response"/>
+        <jersey:resources doc:name="REST Service" doc:description="GET http://localhost:8080/rest/appointment/make">
         	<component class="gov.va.scheduling.transport.jersey.AppointmentResource" />
         </jersey:resources>
-        <echo-component doc:name="Echo"/>
         <json:json-to-object-transformer returnClass="gov.va.scheduling.MakeAppointment" doc:name="JSON to MakeAppointment"/>
-        <echo-component doc:name="Echo"/>
-        <cxf:jaxws-client enableMuleSoapHeaders="true" doc:name="SOAP"/>
+        <set-session-variable variableName="appointment" value="#[payload]" doc:name="Set Appointment = Payload"/>
+        <logger message="#[appointment]" level="INFO" doc:name="Logger"/>
+        <flow-ref name="MakeAppointmentFlow" doc:name="MakeAppointmentFlow"/>
     </flow>
+    <sub-flow name="MakeAppointmentFlow" doc:name="MakeAppointmentFlow">
+        <flow-ref name="isPatientAlive" doc:name="isPatientAlive Flow"/>
+        <flow-ref name="makeAppointment" doc:name="makeAppointment Flow"/>
+        <flow-ref name="sendCalendarReminder" doc:name="sendCalendarReminder Flow"/>
+        <flow-ref name="choiceCommunication" doc:name="choiceCommunication Flow"/>
+    </sub-flow>
+    <sub-flow name="isPatientAlive" doc:name="isPatientAlive">
+        <set-payload value="IBM" doc:name="Set Payload"/>
+        <echo-component doc:name="Echo"/>
+        <cxf:jaxws-client operation="GetQuote" clientClass="test.webservice.StockQuote" port="StockQuoteSoap" enableMuleSoapHeaders="true" doc:name="SOAP"/>
+        <http:outbound-endpoint exchange-pattern="request-response" address="http://www.webservicex.net/stockquote.asmx" doc:name="HTTP"/>
+        <file:outbound-endpoint path="C:\temp" outputPattern="mule_esb_2.txt" responseTimeout="10000" doc:name="File" />
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <echo-component doc:name="Echo"/>
+    </sub-flow>
+    <sub-flow name="makeAppointment" doc:name="makeAppointment">
+        <set-payload value="#[appointment]" doc:name="Set Payload"/>
+        <echo-component doc:name="Echo"/>
+    </sub-flow>
+    <sub-flow name="sendCalendarReminder" doc:name="sendCalendarReminder">
+        <echo-component doc:name="Echo"/>
+    </sub-flow>
+    <sub-flow name="choiceCommunication" doc:name="choiceCommunication">
+        <echo-component doc:name="Echo"/>
+    </sub-flow>
 </mule>
